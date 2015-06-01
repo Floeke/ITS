@@ -1,6 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
 
 
 unsigned int inverse_of[256];
@@ -9,7 +10,7 @@ unsigned int inverse_of[256];
 
 class AES {
 private:
-	unsigned int value;
+	unsigned char value;
 	unsigned int reduction = 283; //2^8 + 2^4 + 2^3 + 2^1 + 2^0
 
 	int expm(AES a, AES b)
@@ -81,7 +82,7 @@ public:
 
 #pragma region Operatoren
 
-	void operator=(char x)
+	void operator=(unsigned char x)
 	{
 		this->value = x;
 	}
@@ -168,8 +169,6 @@ private:
 	{
 		if (row == 0)
 			return;
-		if (row != times)
-			return;
 		for (int i = 0; i < times; i++)
 		{
 			unsigned int temp;
@@ -180,6 +179,22 @@ private:
 			values[row][3] = temp;
 		}
 	}
+
+	void InvShiftRow(int row, int times)
+	{
+		if (row == 0)
+			return;
+		for (int i = 0; i < times; i++)
+		{
+			unsigned int temp;
+			temp = values[row][3].getValue();
+			values[row][3] = values[row][2];
+			values[row][2] = values[row][1];
+			values[row][1] = values[row][0];
+			values[row][0] = temp;
+		}
+	}
+
 
 	void MixColumn(int col)
 	{
@@ -193,17 +208,36 @@ private:
 			}
 		}
 
-		values[0][col] = unsigned int((2 * temp[0][col]) ^ (3 * temp[1][col]) ^ (temp[2][col]) ^ (temp[3][col]));
-		values[1][col] = unsigned int((temp[0][col]) ^ (2 * temp[1][col]) ^ (3 * temp[2][col]) ^ (temp[3][col]));
-		values[2][col] = unsigned int((temp[0][col]) ^ (temp[1][col]) ^ (2 * temp[2][col]) ^ (3 * temp[3][col]));
-		values[3][col] = unsigned int((3 * temp[0][col]) ^ (temp[1][col]) ^ (temp[2][col]) ^ (2 * temp[3][col]));
+		values[0][col] = (unsigned int)((2 * temp[0][col]) ^ (3 * temp[1][col]) ^ (temp[2][col]) ^ (temp[3][col]));
+		values[1][col] = (unsigned int)((temp[0][col]) ^ (2 * temp[1][col]) ^ (3 * temp[2][col]) ^ (temp[3][col]));
+		values[2][col] = (unsigned int)((temp[0][col]) ^ (temp[1][col]) ^ (2 * temp[2][col]) ^ (3 * temp[3][col]));
+		values[3][col] = (unsigned int)((3 * temp[0][col]) ^ (temp[1][col]) ^ (temp[2][col]) ^ (2 * temp[3][col]));
+
+	}
+
+	void InvMixColumn(int col)
+	{
+		//Save the orphans
+		unsigned char temp[4][4];
+		for (int i = 0; i < 4; i++)
+		{
+			for (int j = 0; j < 4; j++)
+			{
+				temp[i][j] = (unsigned int)values[i][j].getValue();
+			}
+		}
+
+		values[0][col] = (unsigned int)((0x0e * temp[0][col]) ^ (0x0b * temp[1][col]) ^ (0x0d * temp[2][col]) ^ (0x09 * temp[3][col]));
+		values[1][col] = (unsigned int)((0x09 * temp[0][col]) ^ (0x0e * temp[1][col]) ^ (0x0b * temp[2][col]) ^ (0x0d * temp[3][col]));
+		values[2][col] = (unsigned int)((0x0d * temp[0][col]) ^ (0x09 * temp[1][col]) ^ (0x0e * temp[2][col]) ^ (0x0b * temp[3][col]));
+		values[3][col] = (unsigned int)((0x0b * temp[0][col]) ^ (0x0d * temp[1][col]) ^ (0x09 * temp[2][col]) ^ (0x0e * temp[3][col]));
 
 	}
 
 	void SubByte(int row, int col)
 	{
-		unsigned int b = get_value(row, col);
-		//unsigned int b = 0;
+		unsigned int b = values[row][col].inverse().getValue();
+
 		for (int i = 0; i < 8; i++)
 		{
 			b = (b) ^ (b & ((i + 4) % 8)) ^ (b&((i + 5) % 8)) ^ (b&((i + 6) % 8)) ^ (b&((i + 7) % 8)) ^ (0x63);
@@ -212,8 +246,20 @@ private:
 		values[row][col] = b;
 	}
 
+	void InvSubByte(int row, int col)
+	{
+		unsigned int b = values[row][col].inverse().getValue();
+
+		for (int i = 0; i < 8; i++)
+		{
+			b = (b) ^ (b & ((i + 4) % 8)) ^ (b&((i + 5) % 8)) ^ (b&((i + 6) % 8)) ^ (b&((i + 7) % 8)) ^ (0x63);
+		}
+
+		values[row][col] = inverse_of[b];
+	}
+
+
 public:
-	//AddRoundKeys
 
 	State()
 	{
@@ -222,7 +268,7 @@ public:
 
 	State(unsigned char text[16])
 	{
-		for (int i = 0; i < 16; i++)
+		for (int i = 0; i < 4; i++)
 		{
 			for (int j = 0; j < 4; j++)
 			{
@@ -231,7 +277,8 @@ public:
 		}
 	}
 
-	unsigned int get_value(int row, int col)
+
+	unsigned char get_value(int row, int col)
 	{
 		return values[row][col].getValue();
 	}
@@ -244,11 +291,27 @@ public:
 		}
 	}
 
+	void inv_shift_rows()
+	{
+		for (int i = 1; i < 4; i++)
+		{
+			InvShiftRow(i, i);
+		}
+	}
+
 	void mix_columns()
 	{
 		for (int i = 0; i < 4; i++)
 		{
 			MixColumn(i);
+		}
+	}
+
+	void inv_mix_columns()
+	{
+		for (int i = 0; i < 4; i++)
+		{
+			InvMixColumn(i);
 		}
 	}
 
@@ -263,57 +326,43 @@ public:
 		}
 	}
 
+	void inv_sub_bytes()
+	{
+		for (int i = 0; i < 4; i++)
+		{
+			for (int j = 0; j < 4; j++)
+			{
+				InvSubByte(i, j);
+			}
+		}
+	}
+
 	void add_round_key(State other_state)
 	{
 		for (int i = 0; i < 4; i++)
 		{
 			for (int j = 0; j < 4; j++)
 			{
-				values[i][j] = (other_state.get_value(i, j) ^ get_value(i, j));
+				values[i][j] = (unsigned char)(other_state.get_value(i, j) ^ get_value(i, j));
 			}
 		}
 	}
 
-	/*eyExpansion(byte key[4*Nk], word w[Nb*(Nr+1)], Nk)
-begin
-word  temp
-i = 0
-while (i < Nk)
-w[i] = word(key[4*i], key[4*i+1], key[4*i+2], key[4*i+3])
-i = i+1
-end while
-
-i = Nk
-while (i < Nb * (Nr+1)]
-temp = w[i-1]
-if (i mod Nk = 0)
-temp = SubWord(RotWord(temp)) xor Rcon[i/Nk]
-else if (Nk > 6 and i mod Nk = 4)
-temp = SubWord(temp)
-end if
-w[i] = w[i-Nk] xor temp
-i = i + 1*/
-	State* key_expansion(State key, int anz)
+	void inv_add_round_key(State other_state)
 	{
-		State temp;
-		State* states;
-		states = (State*)malloc(sizeof(State)* 10);
-		for (int i = 0; i < anz; i++)
-		{
-			//State[i] = 
-		}
-		return states;
+		add_round_key(other_state);
 	}
 };
 
-void cipher(unsigned char in[16], unsigned char key[16])
+unsigned char* cipher(unsigned char in[16], unsigned char key[16])
 {
 	State a = State(in);
 	State key_state = State(key);
+	unsigned char out[16];
 
 	a.add_round_key(key_state);
 
-	for (int i = 0; i < 16; i++)
+	for (int i = 1; i < 16; i++)
 	{
 		a.sub_bytes();
 		a.shift_rows();
@@ -325,41 +374,62 @@ void cipher(unsigned char in[16], unsigned char key[16])
 	a.shift_rows();
 	a.add_round_key(key_state);
 
-	
+	int i, j, k=0;
+
+	for (i = 0, k = 0; i < 4; i++)
+	{
+		for (j = 0; j < 4; j++, k++)
+		{
+			out[k] = (unsigned char)a.get_value(i, j);
+		}
+	}
+
+	return out;
+}
+
+unsigned char* inv_cipher(unsigned char in[16], unsigned char key[16])
+{
+	State a = State(in);
+	State key_state = State(key);
+	unsigned char out[16];
+
+	a.inv_add_round_key(key_state);
+
+	for (int i = 16; i > 1; i--)
+	{
+		a.inv_sub_bytes();
+		a.inv_shift_rows();
+		a.inv_mix_columns();
+		a.inv_add_round_key(key_state);
+	}
+
+	a.inv_sub_bytes();
+	a.inv_shift_rows();
+	a.inv_add_round_key(key_state);
+
+	int i, j, k;
+
+	for (i = 0, k = 0; i < 4; i++)
+	{
+		for (j = 0; j < 4; k++, j++)
+		{
+			out[k] = a.get_value(i, j);
+		}
+	}
+
+	return out;
 }
 
 void main()
 {
 	initialize_AES_lookup_inverse();
+	unsigned char *klartext = (unsigned char*)"Hallo           "; //nehm echt 16Byte.
+	unsigned char *schluessel = (unsigned char*)"Schluessel      ";
+	unsigned char *krypt = cipher(klartext, schluessel);
+	std::cout << "Klartext: " << klartext << "\n\nVerschluesselt: " << krypt;
+	unsigned char *decrpyted = inv_cipher(krypt, schluessel);
 
-	int r = 283;
-	int a = 0x02;
-	int result = 0xff; 
-	//scanf_s("%d", &a);
-	//printf("%d\n", euklid(a, 283));
-	AES f = 0x57;
-	AES g = 0x83;
-
-	printf("%d\n", (f*g).getValue());
-	printf("%d\n", 0xc1);
-
-	for (unsigned int i = 1; i < 256; i++)
-	{
-		f = i;
-		g = inverse_of[i];
-		printf("%d ", (f/f).getValue());
-	}
-
-	/*for (int i = 1; i < 256; i++)
-	{
-		f = AES(i);
-		printf("%d ", (f / f).getValue());
-		if ((f.inverse()*f).getValue() != (f / f).getValue())
-			printf("Pre-Fehler #%d ! 1. = %4d  2. = %4d\n", i, (f.inverse()*f).getValue(), (f.getValue() * f.inverse().getValue()) % 283);
-	}*/
-
+	std::cout << "\n\nEntschluesselt: " << decrpyted;
 	
-
-
 	system("pause");
 }
