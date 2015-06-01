@@ -3,63 +3,20 @@
 #include <stdlib.h>
 #include <iostream>
 
+//Is the inverse Element of each Element in GF(2^8)
+unsigned char inverse_of[256];
 
-unsigned int inverse_of[256];
 
-
-
+//Element in GF(2^8)
 class AES {
 private:
 	unsigned char value;
 	unsigned int reduction = 283; //2^8 + 2^4 + 2^3 + 2^1 + 2^0
 
-	int expm(AES a, AES b)
-	{
-		unsigned int m = b.getValue() + 283 - 1;
-		AES r = 1, a_ = a.getValue(), b_ = b.getValue();
-		while (m)
-		{
-			if (m & 1)
-				r = r * a_;
-			a_ = a_ * a_;
-			m = m >> 1;
-		}
-
-		return r.getValue();
-	}
-
-	int euklid(int x, int b)
-	{
-		if (b == 0)
-			return 0;
-		int s, s2, t1, s1, t, t2, temp, g, r, y;
-		s = s2 = t1 = 0;
-		s1 = t = t2 = 1;
-		y = b;
-		temp = x%y;
-		while (temp != 0)
-		{
-			g = x / y;
-			r = x%y;
-			s = s1 - g*s2;
-			t = t1 - g*t2;
-			s1 = s2;
-			s2 = s;
-			t1 = t2;
-			t2 = t;
-			x = y;
-			y = r;
-			temp = x%y;
-		}
-		if (s<0) s += b;
-		return s;
-	}
-
-
 public:
 
-#pragma region Konstruktoren und Getter
-	unsigned int getValue()
+#pragma region Constructors and Getters
+	unsigned char getValue()
 	{
 		return value;
 	}
@@ -80,8 +37,7 @@ public:
 	}
 #pragma endregion
 
-#pragma region Operatoren
-
+#pragma region Operators
 	void operator=(unsigned char x)
 	{
 		this->value = x;
@@ -109,10 +65,8 @@ public:
 	
 	AES inverse()
 	{
-		/* return AES(expm(getValue(), AES(reduction-2))); */
 		return AES(inverse_of[getValue()]);
-	}
-	
+	}	
 
 	AES operator*(AES x)
 	{
@@ -139,39 +93,19 @@ public:
 		return (*this * x.inverse());
 	}
 #pragma endregion
-
 };
 
-void initialize_AES_lookup_inverse()
-{
-	AES F = 0, G = 0;
-	for (unsigned int i = 1; i < 256; i++)
-	{
-		F = i;
-		for (unsigned int j = 1; j < 256; j++)
-		{
-			G = j;
-			if ((G*F).getValue() == 1)
-			{
-				inverse_of[i] = j;
-				inverse_of[j] = i;
-			}
-		}
-	}
-}
-
-
-class State{
+class State {
 private:
 	AES values[4][4]; //row, col
 
+#pragma region Word-wide operations
+	//Shifts a row to the left
 	void ShiftRow(int row, int times)
 	{
-		if (row == 0)
-			return;
 		for (int i = 0; i < times; i++)
 		{
-			unsigned int temp;
+			unsigned char temp;
 			temp = values[row][0].getValue();
 			values[row][0] = values[row][1];
 			values[row][1] = values[row][2];
@@ -180,13 +114,12 @@ private:
 		}
 	}
 
+	//Shifts a row to the right
 	void InvShiftRow(int row, int times)
 	{
-		if (row == 0)
-			return;
 		for (int i = 0; i < times; i++)
 		{
-			unsigned int temp;
+			unsigned char temp;
 			temp = values[row][3].getValue();
 			values[row][3] = values[row][2];
 			values[row][2] = values[row][1];
@@ -195,7 +128,7 @@ private:
 		}
 	}
 
-
+	//Matrix multiplication
 	void MixColumn(int col)
 	{
 		//Save the orphans
@@ -204,17 +137,18 @@ private:
 		{
 			for (int j = 0; j < 4; j++)
 			{
-				temp[i][j] = (unsigned int)values[i][j].getValue();
+				temp[i][j] = values[i][j].getValue();
 			}
 		}
 
-		values[0][col] = (unsigned int)((2 * temp[0][col]) ^ (3 * temp[1][col]) ^ (temp[2][col]) ^ (temp[3][col]));
-		values[1][col] = (unsigned int)((temp[0][col]) ^ (2 * temp[1][col]) ^ (3 * temp[2][col]) ^ (temp[3][col]));
-		values[2][col] = (unsigned int)((temp[0][col]) ^ (temp[1][col]) ^ (2 * temp[2][col]) ^ (3 * temp[3][col]));
-		values[3][col] = (unsigned int)((3 * temp[0][col]) ^ (temp[1][col]) ^ (temp[2][col]) ^ (2 * temp[3][col]));
+		values[0][col] = (unsigned char)((2 * temp[0][col]) ^ (3 * temp[1][col]) ^ (temp[2][col]) ^ (temp[3][col]));
+		values[1][col] = (unsigned char)((temp[0][col]) ^ (2 * temp[1][col]) ^ (3 * temp[2][col]) ^ (temp[3][col]));
+		values[2][col] = (unsigned char)((temp[0][col]) ^ (temp[1][col]) ^ (2 * temp[2][col]) ^ (3 * temp[3][col]));
+		values[3][col] = (unsigned char)((3 * temp[0][col]) ^ (temp[1][col]) ^ (temp[2][col]) ^ (2 * temp[3][col]));
 
 	}
 
+	//Matrix multiplication
 	void InvMixColumn(int col)
 	{
 		//Save the orphans
@@ -223,20 +157,21 @@ private:
 		{
 			for (int j = 0; j < 4; j++)
 			{
-				temp[i][j] = (unsigned int)values[i][j].getValue();
+				temp[i][j] = values[i][j].getValue();
 			}
 		}
 
-		values[0][col] = (unsigned int)((0x0e * temp[0][col]) ^ (0x0b * temp[1][col]) ^ (0x0d * temp[2][col]) ^ (0x09 * temp[3][col]));
-		values[1][col] = (unsigned int)((0x09 * temp[0][col]) ^ (0x0e * temp[1][col]) ^ (0x0b * temp[2][col]) ^ (0x0d * temp[3][col]));
-		values[2][col] = (unsigned int)((0x0d * temp[0][col]) ^ (0x09 * temp[1][col]) ^ (0x0e * temp[2][col]) ^ (0x0b * temp[3][col]));
-		values[3][col] = (unsigned int)((0x0b * temp[0][col]) ^ (0x0d * temp[1][col]) ^ (0x09 * temp[2][col]) ^ (0x0e * temp[3][col]));
+		values[0][col] = (unsigned char)((0x0e * temp[0][col]) ^ (0x0b * temp[1][col]) ^ (0x0d * temp[2][col]) ^ (0x09 * temp[3][col]));
+		values[1][col] = (unsigned char)((0x09 * temp[0][col]) ^ (0x0e * temp[1][col]) ^ (0x0b * temp[2][col]) ^ (0x0d * temp[3][col]));
+		values[2][col] = (unsigned char)((0x0d * temp[0][col]) ^ (0x09 * temp[1][col]) ^ (0x0e * temp[2][col]) ^ (0x0b * temp[3][col]));
+		values[3][col] = (unsigned char)((0x0b * temp[0][col]) ^ (0x0d * temp[1][col]) ^ (0x09 * temp[2][col]) ^ (0x0e * temp[3][col]));
 
 	}
 
+	//Substitution of a single Element
 	void SubByte(int row, int col)
 	{
-		unsigned int b = values[row][col].inverse().getValue();
+		unsigned char b = values[row][col].inverse().getValue();
 
 		for (int i = 0; i < 8; i++)
 		{
@@ -246,9 +181,10 @@ private:
 		values[row][col] = b;
 	}
 
+	//Substitution of a single Element
 	void InvSubByte(int row, int col)
 	{
-		unsigned int b = values[row][col].inverse().getValue();
+		unsigned char b = values[row][col].inverse().getValue();
 
 		for (int i = 0; i < 8; i++)
 		{
@@ -257,10 +193,11 @@ private:
 
 		values[row][col] = inverse_of[b];
 	}
-
+#pragma endregion
 
 public:
 
+#pragma region Constructors and Getters
 	State()
 	{
 
@@ -272,17 +209,20 @@ public:
 		{
 			for (int j = 0; j < 4; j++)
 			{
-				values[i][j] = (unsigned int)text[4 * i + j];
+				values[i][j] = text[4 * i + j];
 			}
 		}
 	}
-
 
 	unsigned char get_value(int row, int col)
 	{
 		return values[row][col].getValue();
 	}
+#pragma endregion
 
+#pragma region State-wide operations
+
+	//Shifts all rows
 	void shift_rows()
 	{
 		for (int i = 1; i < 4; i++)
@@ -291,6 +231,7 @@ public:
 		}
 	}
 
+	//Shifts all rows
 	void inv_shift_rows()
 	{
 		for (int i = 1; i < 4; i++)
@@ -299,6 +240,7 @@ public:
 		}
 	}
 
+	//Mixes all columns
 	void mix_columns()
 	{
 		for (int i = 0; i < 4; i++)
@@ -307,6 +249,7 @@ public:
 		}
 	}
 
+	//Mixes all columns
 	void inv_mix_columns()
 	{
 		for (int i = 0; i < 4; i++)
@@ -315,6 +258,7 @@ public:
 		}
 	}
 
+	//Substitutes all Elements
 	void sub_bytes()
 	{
 		for (int i = 0; i < 4; i++)
@@ -326,6 +270,7 @@ public:
 		}
 	}
 
+	//Substitutes all Elements
 	void inv_sub_bytes()
 	{
 		for (int i = 0; i < 4; i++)
@@ -337,23 +282,27 @@ public:
 		}
 	}
 
+	//Adds a round_key (Simple XOR with another State)
 	void add_round_key(State other_state)
 	{
 		for (int i = 0; i < 4; i++)
 		{
 			for (int j = 0; j < 4; j++)
 			{
-				values[i][j] = (unsigned char)(other_state.get_value(i, j) ^ get_value(i, j));
+				values[i][j] = (other_state.get_value(i, j) ^ get_value(i, j));
 			}
 		}
 	}
 
+	//Adds a round_key (Simple XOR with another State)
 	void inv_add_round_key(State other_state)
 	{
 		add_round_key(other_state);
 	}
+#pragma endregion
 };
 
+//Encrpts a 16 Byte array
 unsigned char* cipher(unsigned char in[16], unsigned char key[16])
 {
 	State a = State(in);
@@ -380,13 +329,14 @@ unsigned char* cipher(unsigned char in[16], unsigned char key[16])
 	{
 		for (j = 0; j < 4; j++, k++)
 		{
-			out[k] = (unsigned char)a.get_value(i, j);
+			out[k] = a.get_value(i, j);
 		}
 	}
 
 	return out;
 }
 
+//Decrypts a 16 Byte array
 unsigned char* inv_cipher(unsigned char in[16], unsigned char key[16])
 {
 	State a = State(in);
@@ -420,10 +370,29 @@ unsigned char* inv_cipher(unsigned char in[16], unsigned char key[16])
 	return out;
 }
 
+//initializes the lookup_table for the GF(2^8)
+void initialize_AES_lookup_inverse()
+{
+	AES F = 0, G = 0;
+	for (unsigned int i = 1; i < 256; i++)
+	{
+		F = i;
+		for (unsigned int j = 1; j < 256; j++)
+		{
+			G = j;
+			if ((G*F).getValue() == 1)
+			{
+				inverse_of[i] = j;
+				inverse_of[j] = i;
+			}
+		}
+	}
+}
+
 void main()
 {
 	initialize_AES_lookup_inverse();
-	unsigned char *klartext = (unsigned char*)"Hallo           "; //nehm echt 16Byte.
+	unsigned char *klartext = (unsigned char*)"Hallo           "; 
 	unsigned char *schluessel = (unsigned char*)"Schluessel      ";
 	unsigned char *krypt = cipher(klartext, schluessel);
 	std::cout << "Klartext: " << klartext << "\n\nVerschluesselt: " << krypt;
