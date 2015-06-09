@@ -132,7 +132,7 @@ private:
 	void MixColumn(int col)
 	{
 		//Save the orphans
-		unsigned char temp[4][4];
+		AES temp[4][4];
 		for (int i = 0; i < 4; i++)
 		{
 			for (int j = 0; j < 4; j++)
@@ -141,10 +141,10 @@ private:
 			}
 		}
 
-		values[0][col] = (unsigned char)((2 * temp[0][col]) ^ (3 * temp[1][col]) ^ (temp[2][col]) ^ (temp[3][col]));
-		values[1][col] = (unsigned char)((temp[0][col]) ^ (2 * temp[1][col]) ^ (3 * temp[2][col]) ^ (temp[3][col]));
-		values[2][col] = (unsigned char)((temp[0][col]) ^ (temp[1][col]) ^ (2 * temp[2][col]) ^ (3 * temp[3][col]));
-		values[3][col] = (unsigned char)((3 * temp[0][col]) ^ (temp[1][col]) ^ (temp[2][col]) ^ (2 * temp[3][col]));
+		values[0][col] = (unsigned char)((AES(2) * temp[0][col]).getValue() ^ (AES(3) * temp[1][col]).getValue() ^ (temp[2][col]).getValue() ^ (temp[3][col]).getValue());
+		values[1][col] = (unsigned char)((temp[0][col]).getValue() ^ (AES(2) * temp[1][col]).getValue() ^ (AES(3) * temp[2][col]).getValue() ^ (temp[3][col]).getValue());
+		values[2][col] = (unsigned char)((temp[0][col]).getValue() ^ (temp[1][col]).getValue() ^ (AES(2) * temp[2][col]).getValue() ^ (AES(3) * temp[3][col]).getValue());
+		values[3][col] = (unsigned char)((AES(3) * temp[0][col]).getValue() ^ (temp[1][col]).getValue() ^ (temp[2][col]).getValue() ^ (AES(2) * temp[3][col]).getValue());
 
 	}
 
@@ -152,7 +152,7 @@ private:
 	void InvMixColumn(int col)
 	{
 		//Save the orphans
-		unsigned char temp[4][4];
+		AES temp[4][4];
 		for (int i = 0; i < 4; i++)
 		{
 			for (int j = 0; j < 4; j++)
@@ -161,10 +161,10 @@ private:
 			}
 		}
 
-		values[0][col] = (unsigned char)((0x0e * temp[0][col]) ^ (0x0b * temp[1][col]) ^ (0x0d * temp[2][col]) ^ (0x09 * temp[3][col]));
-		values[1][col] = (unsigned char)((0x09 * temp[0][col]) ^ (0x0e * temp[1][col]) ^ (0x0b * temp[2][col]) ^ (0x0d * temp[3][col]));
-		values[2][col] = (unsigned char)((0x0d * temp[0][col]) ^ (0x09 * temp[1][col]) ^ (0x0e * temp[2][col]) ^ (0x0b * temp[3][col]));
-		values[3][col] = (unsigned char)((0x0b * temp[0][col]) ^ (0x0d * temp[1][col]) ^ (0x09 * temp[2][col]) ^ (0x0e * temp[3][col]));
+		values[0][col] = (unsigned char)((AES(0x0e) * temp[0][col]).getValue() ^ (AES(0x0b) * temp[1][col]).getValue() ^ (AES(0x0d) * temp[2][col]).getValue() ^ (AES(0x09) * temp[3][col]).getValue());
+		values[1][col] = (unsigned char)((AES(0x09) * temp[0][col]).getValue() ^ (AES(0x0e) * temp[1][col]).getValue() ^ (AES(0x0b) * temp[2][col]).getValue() ^ (AES(0x0d) * temp[3][col]).getValue());
+		values[2][col] = (unsigned char)((AES(0x0d) * temp[0][col]).getValue() ^ (AES(0x09) * temp[1][col]).getValue() ^ (AES(0x0e) * temp[2][col]).getValue() ^ (AES(0x0b) * temp[3][col]).getValue());
+		values[3][col] = (unsigned char)((AES(0x0b) * temp[0][col]).getValue() ^ (AES(0x0d) * temp[1][col]).getValue() ^ (AES(0x09) * temp[2][col]).getValue() ^ (AES(0x0e) * temp[3][col]).getValue());
 
 	}
 
@@ -289,7 +289,7 @@ public:
 		{
 			for (int j = 0; j < 4; j++)
 			{
-				values[i][j] = (other_state.get_value(i, j) ^ get_value(i, j));
+				values[i][j] = (unsigned char)(other_state.get_value(i, j) ^ get_value(i, j));
 			}
 		}
 	}
@@ -392,7 +392,7 @@ void initialize_AES_lookup_inverse()
 void main()
 {
 	initialize_AES_lookup_inverse();
-	unsigned char *klartext = (unsigned char*)"Hallo           "; 
+	unsigned char *klartext = (unsigned char*)"Hallo, das ist e"; 
 	unsigned char *schluessel = (unsigned char*)"Schluessel      ";
 	unsigned char *krypt = cipher(klartext, schluessel);
 	std::cout << "Klartext: " << klartext << "\n\nVerschluesselt: " << krypt;
